@@ -1,0 +1,14 @@
+{
+    "version": 1,
+    "revision": 0,
+    "rules": [
+        {
+            "primary-output": "x64\\Debug\\M01-ProcessSchedulerCLI.obj",
+            "outputs": [
+                "x64\\Debug\\M01-ProcessSchedulerCLI.cpp.obj.dt.module.json",
+                "x64\\Debug\\M01-ProcessSchedulerCLI.cpp.obj.dt.d.json"
+            ],
+            "requires": []
+        }
+    ]
+}

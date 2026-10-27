@@ -1,0 +1,41 @@
+========================================
+          CPU UTILIZATION REPORT
+========================================
+CPU utilization: 5.96%
+CPU cores: 4
+Cores used: 0
+Cores available: 4
+Total CPU ticks: 915
+Busy core ticks: 218
+
+Running / Active Processes
+----------------------------------------
+No active processes.
+
+Finished Processes
+----------------------------------------
+alpha | ID: 1 | Finished at tick: 104 | Instructions executed: 11
+p01 | ID: 2 | Finished at tick: 594 | Instructions executed: 7
+p02 | ID: 3 | Finished at tick: 595 | Instructions executed: 5
+p03 | ID: 4 | Finished at tick: 621 | Instructions executed: 15
+p04 | ID: 5 | Finished at tick: 624 | Instructions executed: 11
+p05 | ID: 6 | Finished at tick: 633 | Instructions executed: 10
+p06 | ID: 7 | Finished at tick: 642 | Instructions executed: 6
+p07 | ID: 8 | Finished at tick: 663 | Instructions executed: 15
+p08 | ID: 9 | Finished at tick: 670 | Instructions executed: 12
+p09 | ID: 10 | Finished at tick: 683 | Instructions executed: 11
+p10 | ID: 11 | Finished at tick: 682 | Instructions executed: 10
+p11 | ID: 12 | Finished at tick: 693 | Instructions executed: 7
+p12 | ID: 13 | Finished at tick: 695 | Instructions executed: 5
+p13 | ID: 14 | Finished at tick: 710 | Instructions executed: 10
+p14 | ID: 15 | Finished at tick: 719 | Instructions executed: 9
+p15 | ID: 16 | Finished at tick: 732 | Instructions executed: 8
+p16 | ID: 17 | Finished at tick: 741 | Instructions executed: 6
+p17 | ID: 18 | Finished at tick: 754 | Instructions executed: 12
+p18 | ID: 19 | Finished at tick: 755 | Instructions executed: 5
+p19 | ID: 20 | Finished at tick: 780 | Instructions executed: 10
+p20 | ID: 21 | Finished at tick: 782 | Instructions executed: 8
+p21 | ID: 22 | Finished at tick: 802 | Instructions executed: 15
+p22 | ID: 23 | Finished at tick: 801 | Instructions executed: 6
+
+========================================

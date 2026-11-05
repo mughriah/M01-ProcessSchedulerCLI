@@ -34,6 +34,7 @@ bool Config::loadFromFile(const std::string& filename, std::string* error) {
         if (!(stream >> std::quoted(value)) || (stream >> extra)) {
             return fail("Expected one parameter and one value on line " + std::to_string(lineNumber) + ".");
         }
+        if (key == "delay-per-exec") { key = "delays-per-exec"; }
         if (!required.count(key)) { return fail("Unknown parameter: " + key + "."); }
         if (!seen.insert(key).second) { return fail("Duplicate parameter: " + key + "."); }
         if (key == "scheduler") {

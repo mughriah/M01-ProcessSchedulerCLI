@@ -117,7 +117,8 @@ StepResult Process::executeOne(uint64_t currentTick, uint64_t delayPerExec) {
     }
     switch (instruction->type) {
     case InstructionType::PRINT:
-        logs.push_back("(" + timestamp() + ") Core:" + std::to_string(coreID) + " " + expandMessage(instruction->message));
+        logs.push_back("(" + timestamp() + ") Core:" + std::to_string(coreID) + " \"" + expandMessage(instruction->message) + "\"");
+        if (logs.size() > kMaxLogs) { logs.pop_front(); }
         break;
     case InstructionType::DECLARE:
         variables[instruction->destination] = instruction->value;
@@ -193,7 +194,7 @@ ProcessSnapshot Process::getSnapshot(bool includeLogs) const {
     snapshot.finishTick = finishTick;
     snapshot.creationTime = creationTime;
     snapshot.finishTime = finishTime;
-    if (includeLogs) { snapshot.logs = logs; }
+    if (includeLogs) { snapshot.logs.assign(logs.begin(), logs.end()); }
     return snapshot;
 }
 
@@ -207,5 +208,10 @@ uint64_t Process::getStartTick() const { std::lock_guard<std::mutex> lock(mutex)
 uint64_t Process::getFinishTick() const { std::lock_guard<std::mutex> lock(mutex); return finishTick; }
 uint64_t Process::getExecutedInstructions() const { std::lock_guard<std::mutex> lock(mutex); return executedInstructions; }
 uint64_t Process::getSleepRemaining() const { std::lock_guard<std::mutex> lock(mutex); return sleepRemaining; }
-std::vector<std::string> Process::getLogs() const { std::lock_guard<std::mutex> lock(mutex); return logs; }
+
+std::vector<std::string> Process::getLogs() const {
+    std::lock_guard<std::mutex> lock(mutex);
+    return { logs.begin(), logs.end() };
+}
+
 std::string Process::getStateString() const { std::lock_guard<std::mutex> lock(mutex); return processStateName(state); }

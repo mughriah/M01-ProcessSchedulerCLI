@@ -42,6 +42,8 @@ bool Scheduler::initialize(const Config& loadedConfig) {
     shutdownRequested = false;
     batchGenerationEnabled = false;
 
+    sleeping.clear();
+
     return true;
 }
 
@@ -266,39 +268,16 @@ void Scheduler::tick() {
     }
 
     // Advance sleeping processes and requeue those that wake.
-    for (auto& entry : processes) {
-        auto& process = entry.second;
-
-        if (process->getState() == ProcessState::Sleeping) {
-            process->advanceSleep(currentTick);
-            if (process->getState() == ProcessState::Ready) {
-                readyQueue.push_back(process);
-            }
-        }
+    for (auto it = sleeping.begin(); it != sleeping.end();) {
+        (*it)->advanceSleep(currentTick);
+        const ProcessState state = (*it)->getState();
+        if (state == ProcessState::Ready) { readyQueue.push_back(*it); }
+        if (state == ProcessState::Sleeping) { ++it; }
+        else { it = sleeping.erase(it); }
     }
 
     // Assign ready processes to idle CPU cores.
-    for (size_t coreIndex = 0; coreIndex < cores.size(); ++coreIndex) {
-        auto& core = cores[coreIndex];
-        if (core.process) {
-            continue;
-        }
-
-        while (!readyQueue.empty()) {
-            auto process = readyQueue.front();
-            readyQueue.pop_front();
-
-            if (process->getState() != ProcessState::Ready) {
-                continue;
-            }
-
-            core.process = process;
-            core.quantumUsed = 0;
-
-            process->setRunning(currentTick, static_cast<int>(coreIndex));
-            break;
-        }
-    }
+    dispatch();
 
     // Execute one CPU tick on every occupied core.
     for (auto& core : cores) {
@@ -318,6 +297,7 @@ void Scheduler::tick() {
 
         if (result == StepResult::Finished ||
             result == StepResult::Sleeping) {
+            if (result == StepResult::Sleeping) { sleeping.push_back(core.process); }
             core.process.reset();
             core.quantumUsed = 0;
             continue;
@@ -331,6 +311,25 @@ void Scheduler::tick() {
         currentTick >= nextBatchTick) {
         generateBatchProcess();
         nextBatchTick = currentTick + config.batchProcessFreq;
+    }
+
+    // Refill cores freed this tick so screen -ls reflects true utilization.
+    dispatch();
+}
+
+void Scheduler::dispatch() {
+    for (size_t coreIndex = 0; coreIndex < cores.size(); ++coreIndex) {
+        auto& core = cores[coreIndex];
+        if (core.process) { continue; }
+        while (!readyQueue.empty()) {
+            auto process = readyQueue.front();
+            readyQueue.pop_front();
+            if (process->getState() != ProcessState::Ready) { continue; }
+            core.process = process;
+            core.quantumUsed = 0;
+            process->setRunning(currentTick, static_cast<int>(coreIndex));
+            break;
+        }
     }
 }
 
@@ -347,3 +346,4 @@ void Scheduler::run() {
         std::this_thread::sleep_until(nextTick);
     }
 }
+

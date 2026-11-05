@@ -256,16 +256,18 @@ void Console::handleScreenCommand(
 }
 
 void Console::printProcessInfo(const ProcessSnapshot& process) const {
-    std::cout << "Process name: " << process.name << '\n'
-              << "Process ID: " << process.id << '\n'
-              << "State: " << processStateName(process.state) << '\n'
-              << "Core: " << (process.coreID >= 0 ? std::to_string(process.coreID) : "-") << '\n'
-              << "Created: " << process.creationTime << '\n'
-              << "Current instruction: " << process.executed << '\n'
-              << "Total instructions: " << process.total << "\n\nProcess output:\n";
+    std::cout << "\nProcess name: " << process.name << '\n'
+        << "ID: " << process.id << '\n'
+        << "Logs:\n";
     for (const auto& log : process.logs) { std::cout << log << '\n'; }
-    if (process.logs.empty()) { std::cout << "No PRINT output yet.\n"; }
-    if (process.state == ProcessState::Finished) { std::cout << "Finished!\n"; }
+    std::cout << '\n';
+    if (process.state == ProcessState::Finished) {
+        std::cout << "Finished!\n\n";
+    }
+    else {
+        std::cout << "Current instruction line: " << process.executed << '\n'
+            << "Lines of code: " << process.total << "\n\n";
+    }
 }
 
 void Console::enterProcessScreen(const std::string& processName, bool newlyCreated) {

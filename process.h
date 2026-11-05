@@ -6,6 +6,8 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <deque>
+
 
 enum class ProcessState { Ready, Running, Sleeping, Finished };
 enum class StepResult { Executed, BusyWait, Sleeping, Finished };
@@ -38,7 +40,8 @@ private:
     std::vector<Instruction> instructions;
     std::vector<ExecutionFrame> frames;
     std::map<std::string, uint16_t> variables;
-    std::vector<std::string> logs;
+    std::deque<std::string> logs;
+    static constexpr size_t kMaxLogs = 1000;
     ProcessState state = ProcessState::Ready;
     int coreID = -1;
     uint64_t instructionCount = 0;

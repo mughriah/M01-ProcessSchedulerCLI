@@ -40,6 +40,7 @@ private:
     > processes;
 
     std::deque<std::shared_ptr<Process>> readyQueue;
+    std::vector<std::shared_ptr<Process>> sleeping;
     std::vector<CPUCore> cores;
 
     std::thread worker;
@@ -55,6 +56,7 @@ private:
     void run();
     void tick();
     void generateBatchProcess();
+    void dispatch();
 
 public:
     Scheduler();

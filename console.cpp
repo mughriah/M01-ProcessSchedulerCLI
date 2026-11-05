@@ -13,7 +13,23 @@
 
 void Console::printWelcome() const {
     std::cout
-        << "Type initialize first (or exit).\n\n";
+        << "============================================================\n"
+        << "  Group 8 | CSOPESY - M01 CPU Scheduler and CLI\n"
+        << "============================================================\n"
+        << "  Developers:\n"
+        << "    Abenojar, Fred\n"
+        << "    Caya, Mary Faye\n"
+        << "    Diamante, Deo Zamir\n"
+        << "    Guiller, Gerylyn\n"
+        << "  Version Date: November 5, 2026\n"
+        << "============================================================\n";
+    if (initialized) {
+        std::cout << "Type help for commands, or exit to quit.\n\n";
+    }
+    else {
+        std::cout << "Type initialize first (or exit).\n"
+                  << "After initialization, type help for commands.\n\n";
+    }
 }
 
 void Console::printHelp() const {
@@ -31,37 +47,38 @@ void Console::printHelp() const {
 }
 
 void Console::clearConsole() const {
+    // Finish pending output before changing the display or moving its cursor.
+    std::cout.flush();
 #ifdef _WIN32
     HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD originalMode = 0;
+    // Redirected output is a transcript, not a screen to erase.
+    if (!GetConsoleMode(console, &originalMode)) { return; }
 
-    if (console == INVALID_HANDLE_VALUE) {
-        return;
+    // Windows Terminal/ConPTY handles VT clearing consistently. Filling the
+    // entire legacy scrollback buffer can leave stale or duplicated rows.
+    if (SetConsoleMode(console, originalMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+        constexpr char sequence[] = "\x1b[2J\x1b[H";
+        constexpr DWORD length = sizeof(sequence) - 1;
+        DWORD written = 0;
+        const BOOL cleared = WriteConsoleA(console, sequence, length, &written, nullptr);
+        SetConsoleMode(console, originalMode);
+        if (cleared && written == length) { return; }
     }
 
-    CONSOLE_SCREEN_BUFFER_INFO info;
-
-    if (!GetConsoleScreenBufferInfo(console, &info)) {
-        return;
-    }
-
-    DWORD cells = static_cast<DWORD>(
-        info.dwSize.X * info.dwSize.Y
-        );
-
+    // Fallback for older consoles: clear only the visible rows, then home
+    // within that window instead of jumping to the start of scrollback.
+    CONSOLE_SCREEN_BUFFER_INFO info{};
+    if (!GetConsoleScreenBufferInfo(console, &info)) { return; }
+    const COORD origin = { 0, info.srWindow.Top };
+    const DWORD cells = static_cast<DWORD>(info.dwSize.X)
+        * static_cast<DWORD>(info.srWindow.Bottom - info.srWindow.Top + 1);
     DWORD written = 0;
-    COORD origin = { 0, 0 };
-
-    FillConsoleOutputCharacterA(
-        console, ' ', cells, origin, &written
-    );
-
-    FillConsoleOutputAttribute(
-        console, info.wAttributes, cells, origin, &written
-    );
-
+    FillConsoleOutputCharacterA(console, ' ', cells, origin, &written);
+    FillConsoleOutputAttribute(console, info.wAttributes, cells, origin, &written);
     SetConsoleCursorPosition(console, origin);
 #else
-    std::cout << "\033[2J\033[H";
+    std::cout << "\x1b[2J\x1b[H" << std::flush;
 #endif
 }
 
@@ -77,6 +94,7 @@ std::string Console::readLine(
 }
 
 void Console::run() {
+    clearConsole();
     printWelcome();
 
     while (running) {
@@ -301,5 +319,6 @@ void Console::enterProcessScreen(const std::string& processName, bool newlyCreat
         else if (command == "process-smi") { printProcessInfo(process->getSnapshot(true)); }
         else { std::cout << "Unknown process command.\n"; }
     }
-    std::cout << "\nReturning to the main menu...\n\n";
+    clearConsole();
+    printWelcome();
 }

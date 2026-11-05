@@ -4,7 +4,7 @@ CSOPESY MCO1, Group 8. A console emulator with FCFS and Round Robin scheduling, 
 
 Developers: Fred Abenojar, Mary Faye Caya, Deo Zamir Diamante, and Gerylyn Guiller.
 
-The application entry file is `main.cpp`. The Visual Studio project is `M01-ProcessSchedulerCLI.vcxproj`.
+The application entry file is `main.cpp`. The shared Visual Studio solution is `M01-ProcessSchedulerCLI.slnx`; it references `M01-ProcessSchedulerCLI.vcxproj` using a relative path.
 
 ## Build and run
 
@@ -36,7 +36,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 -Compiler msvc
 
 The default compiler choice is g++ when available, otherwise cl. Both compiler paths use C++20. Close a running emulator before rebuilding it. Build errors stop the script; do not open an older executable as a workaround.
 
-For the Visual Studio interface, open the `.vcxproj`, choose Debug/x64, rebuild, and run without debugging. The shared project sets its working directory to `$(ProjectDir)` so `config.txt` is found. An installed toolset compatible with the project's v145 setting is needed; the script can also use MinGW-w64 independently of the project file.
+For the Visual Studio interface, open the `.slnx` solution (or the `.vcxproj` directly), choose Debug/x64, rebuild, and run without debugging. The shared project sets its working directory to `$(ProjectDir)` so `config.txt` is found. An installed toolset compatible with the project's v145 setting is needed; the script can also use MinGW-w64 independently of the project file.
 
 ## Team workflow
 
@@ -62,7 +62,7 @@ Before initialization, only `initialize` and `exit` are recognized. `initialize`
 | `help` | Show commands. |
 | `exit` | Stop the scheduler and close the emulator. |
 
-Inside a process screen, `process-smi` displays updated information and stored PRINT logs; `exit` returns to the main menu. Entering a screen clears the console and immediately shows its details. A finished process can still be inspected while its screen remains open, but cannot be reopened after leaving it.
+Inside a process screen, `process-smi` displays updated information and stored PRINT logs; `exit` returns to the main menu. Entering a screen clears the console and immediately shows its details. Returning to the main menu clears the process screen and redraws the complete developer header. The startup display is compact; use `help` after initialization for the command list. Windows Terminal uses virtual-terminal clearing, with a visible-window fallback for older consoles. A finished process can still be inspected while its screen remains open, but cannot be reopened after leaving it.
 
 A quick check: run `initialize`, then `screen -s demo`. Wait a few seconds and run `process-smi`. Use `exit` to return, then `screen -ls` and `report-util`. To check generation, run `scheduler-start`, wait, then `scheduler-stop` and `screen -ls`.
 
@@ -87,11 +87,11 @@ Configuration changes take effect when a new emulator session runs `initialize`.
 
 One background worker advances a shared CPU tick every 100 milliseconds and advances each simulated core during that tick. FCFS keeps a process until it finishes or sleeps. RR gives it at most `quantum-cycles` ticks per turn. Busy delay ticks consume the current turn; SLEEP releases the core and counts down in global CPU ticks.
 
-Programs are generated internally, rather than typed by the user. Supported instructions are PRINT, DECLARE, ADD, SUBTRACT, SLEEP, and FOR. Each process owns its uint16 variables; missing variables begin at zero and arithmetic clamps to 0-65,535. PRINT can include a variable using `+name`; default generated messages are `Hello world from <name>!`. Logs include a timestamp and the simulated core number.
+Programs are generated internally, rather than typed by the user. Supported instructions are PRINT, DECLARE, ADD, SUBTRACT, SLEEP, and FOR. Each process owns its uint16 variables; missing variables begin at zero and arithmetic clamps to 0-65,535. PRINT can include a variable using `+name`; default generated messages are `Hello world from <name>!`. Logs include a timestamp and the simulated core number. Each process retains its most recent 1,000 PRINT logs to limit memory use.
 
 FOR stores an instruction block and repeat count, with at most three nesting levels. The process keeps its place in loops when it sleeps or loses its time slice. Instruction progress counts the ordinary operations executed after repetition; FOR headers do not consume a separate tick. Generation preserves the configured instruction count including repeated operations. Large counts use compact loop blocks instead of allocating the expanded program.
 
-Reports show current occupied cores divided by total cores, rather than a lifetime average. Each report copies scheduler/process state together. Finished process details and PRINT logs remain available for reporting; process variables and instruction contents are cleared at completion.
+Reports show current occupied cores divided by total cores, rather than a lifetime average. Running, ready/sleeping, and finished processes are listed separately so waiting processes remain visible. Each report copies scheduler/process state together. Finished process details and PRINT logs remain available for reporting; process variables and instruction contents are cleared at completion.
 
 ## Before assessment
 

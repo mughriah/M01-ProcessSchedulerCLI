@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="M01-ProcessSchedulerCLI.vcxproj" Id="6742a8e6-5c38-45dd-99f8-7fc7c62df8da" />
+</Solution>

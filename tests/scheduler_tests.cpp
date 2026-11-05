@@ -44,10 +44,22 @@ bool load(Config& config, const std::string& text, std::string* error = nullptr)
 std::vector<Instruction> prints(int count, const std::string& text = "hello") {
     return std::vector<Instruction>(count, Instruction::makePrint(text));
 }
+double utilization(const std::string& report) {
+    const std::string label = "CPU utilization: ";
+    const auto start = report.find(label);
+    if (start == std::string::npos) { return -1; }
+    std::istringstream value(report.substr(start + label.size()));
+    double result = -1;
+    value >> result;
+    return result;
+}
 void configTests() {
     Config c;
     std::string error;
     check(load(c, sample, &error) && error.empty(), "spec sample with quoted rr");
+    auto singularDelay = sample;
+    singularDelay.replace(singularDelay.find("delays-per-exec"), std::string("delays-per-exec").size(), "delay-per-exec");
+    check(load(c, singularDelay), "accept sample's singular delay-per-exec alias");
     check(load(c, setting(sample, "scheduler", "fcfs")) && c.scheduler == "fcfs", "unquoted fcfs");
     check(load(c, setting(sample, "scheduler", "\"FCFS\"")), "case insensitive quoted scheduler");
     for (const auto& key : {"num-cpu", "scheduler", "quantum-cycles", "batch-process-freq", "min-ins", "max-ins", "delays-per-exec"}) {
@@ -95,6 +107,15 @@ void instructionTests() {
     check(logs[1].find("difference=0") != std::string::npos, "subtraction clamps at zero");
     check(logs[2].find("auto=5") != std::string::npos, "auto declaration and PRINT variable");
     check(logs[0].front() == '(' && logs[0].find(") Core:2 ") != std::string::npos, "PRINT timestamp and core ID");
+
+    std::vector<Instruction> manyLogs;
+    for (int i = 0; i < 1005; ++i) { manyLogs.push_back(Instruction::makePrint("entry=" + std::to_string(i))); }
+    Process bounded(4, "bounded-logs", std::move(manyLogs), 0);
+    bounded.setRunning(1);
+    for (uint64_t t = 1; t <= 1005; ++t) { bounded.executeOne(t, 0); }
+    const auto recent = bounded.getLogs();
+    check(recent.size() == 1000, "PRINT log retention stays bounded");
+    check(recent.front().find("entry=5\"") != std::string::npos && recent.back().find("entry=1004\"") != std::string::npos, "PRINT retention keeps latest entries in order");
 
     const auto nested = Instruction::makeFor({
         Instruction::makeAdd("x", "x", "1"),
@@ -157,7 +178,7 @@ void schedulerTests() {
             order += a->getExecutedInstructions() > before ? 'A' : 'B';
         }
         check(order == (algorithm == "fcfs" ? "AAAABB" : "AABBAA"), algorithm + " scheduling order");
-        check(Report::generate(s).find("CPU utilization: 0.00%") != std::string::npos, "idle utilization is zero");
+        check(utilization(Report::generate(s)) == 0, "idle utilization is zero");
     }
     {
         Config c; c.numCPU = 2; c.scheduler = "rr"; c.quantumCycles = 1; c.delaysPerExec = 0;
@@ -169,11 +190,23 @@ void schedulerTests() {
         check(a->getExecutedInstructions() == 1 && b->getExecutedInstructions() == 1, "two simulated cores advance in the same tick");
         check(snapshot.usedCores == 2 && snapshot.processes[0].coreID == 0 && snapshot.processes[1].coreID == 1, "core IDs and quantum-one occupancy");
         auto report = Report::generate(s);
-        check(report.find("CPU utilization: 100.00%") != std::string::npos, "current utilization matches occupied cores");
+        check(utilization(report) == 100, "current utilization matches occupied cores");
         check(Report::save(report, "build/test-data/report.txt"), "save report");
         SchedulerTestAccess::tick(s);
         std::ifstream file("build/test-data/report.txt"); std::ostringstream saved; saved << file.rdbuf();
         check(saved.str() == report, "saved report keeps exact displayed snapshot even after another tick");
+    }
+    {
+        Config c; c.numCPU = 1; c.scheduler = "fcfs"; c.delaysPerExec = 0;
+        Scheduler s; s.initialize(c);
+        SchedulerTestAccess::add(s, "sleeping-demo", {Instruction::makeSleep(2), Instruction::makePrint("awake")});
+        SchedulerTestAccess::add(s, "queued-demo", prints(3));
+        auto report = Report::generate(s);
+        check(report.find("sleeping-demo") != std::string::npos && report.find("queued-demo") != std::string::npos, "report includes queued processes before dispatch");
+        SchedulerTestAccess::tick(s);
+        report = Report::generate(s);
+        check(report.find("sleeping-demo") != std::string::npos && report.find("Sleeping") != std::string::npos, "report includes sleeping processes");
+        check(report.find("queued-demo") != std::string::npos && utilization(report) == 100, "report also includes refilled occupied core");
     }
     for (const std::string algorithm : {"fcfs", "rr"}) {
         Config c; c.numCPU = 1; c.scheduler = algorithm; c.quantumCycles = 1; c.delaysPerExec = 0;

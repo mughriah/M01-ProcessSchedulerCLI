@@ -1,6 +1,5 @@
 
 #include "console.h"
-
 #include <exception>
 #include <iostream>
 
@@ -14,9 +13,7 @@ int main() {
             << "Fatal error: "
             << exception.what()
             << '\n';
-
         return 1;
     }
-
     return 0;
 }

@@ -39,7 +39,7 @@ try {
     try {
         if ($Compiler -eq 'g++') {
             if (-not $gnuCompiler) { throw 'g++.exe was not found on PATH.' }
-            & $gnuCompiler.Source -std=c++20 -O2 -Wall -Wextra -Wpedantic -pthread @sources -o $output
+            & $gnuCompiler.Source -std=c++2a -O2 -Wall -Wextra -Wpedantic -pthread @sources -o $output
         }
         else {
             if (-not $msvcCompiler) { throw 'cl.exe was not found. Open Developer PowerShell for Visual Studio and try again.' }

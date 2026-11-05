@@ -1,6 +1,6 @@
 
-#include "Console.h"
-#include "Report.h"
+#include "console.h"
+#include "report.h"
 
 #include <iostream>
 #include <sstream>
@@ -124,10 +124,9 @@ void Console::executeCommand(
             return;
         }
 
-        if (!config.loadFromFile("config.txt")) {
-            std::cout
-                << "Failed to load config.txt. "
-                << "Check its values and format.\n";
+        std::string configError;
+        if (!config.loadFromFile("config.txt", &configError)) {
+            std::cout << "Failed to load config.txt: " << configError << '\n';
             return;
         }
 
@@ -176,9 +175,10 @@ void Console::executeCommand(
             << "Scheduler batch generation stopped.\n";
     }
     else if (command == "report-util") {
-        std::cout << Report::generate(scheduler);
+        const std::string report = Report::generate(scheduler);
+        std::cout << report;
 
-        if (Report::save(scheduler)) {
+        if (Report::save(report)) {
             std::cout
                 << "Report saved to csopesy-log.txt\n";
         }
@@ -230,7 +230,7 @@ void Console::handleScreenCommand(
                 return;
             }
 
-            enterProcessScreen(processName);
+            enterProcessScreen(processName, true);
             return;
         }
 
@@ -255,80 +255,49 @@ void Console::handleScreenCommand(
         << "or screen -ls\n";
 }
 
-void Console::enterProcessScreen(
-    const std::string& processName
-) {
-    auto process = scheduler.findProcess(processName);
+void Console::printProcessInfo(const ProcessSnapshot& process) const {
+    std::cout << "Process name: " << process.name << '\n'
+              << "Process ID: " << process.id << '\n'
+              << "State: " << processStateName(process.state) << '\n'
+              << "Core: " << (process.coreID >= 0 ? std::to_string(process.coreID) : "-") << '\n'
+              << "Created: " << process.creationTime << '\n'
+              << "Current instruction: " << process.executed << '\n'
+              << "Total instructions: " << process.total << "\n\nProcess output:\n";
+    for (const auto& log : process.logs) { std::cout << log << '\n'; }
+    if (process.logs.empty()) { std::cout << "No PRINT output yet.\n"; }
+    if (process.state == ProcessState::Finished) { std::cout << "Finished!\n"; }
+}
 
+void Console::enterProcessScreen(const std::string& processName, bool newlyCreated) {
+    const auto process = scheduler.findProcess(processName);
     if (!process) {
-        std::cout
-            << "Process "
-            << processName
-            << " not found.\n";
+        std::cout << "Process " << processName << " not found.\n";
         return;
     }
-
-    // Do not clear the console when entering a process screen.
-    std::cout
-        << "\n============================================\n"
-        << "Process Screen: "
-        << processName
-        << '\n'
-        << "Type process-smi for process information.\n"
-        << "Type exit to return to the main menu.\n"
-        << "============================================\n";
-
-    while (true) {
-        std::string command = readLine(
-            processName + "> "
-        );
-
-        if (!std::cin || command == "exit") {
-            break;
-        }
-
-        if (command == "process-smi") {
-            process = scheduler.findProcess(processName);
-
-            if (!process) {
-                std::cout << "Finished!\n";
-                continue;
-            }
-
-            std::cout
-                << "Process name: "
-                << process->getName()
-                << '\n'
-                << "Process ID: "
-                << process->getID()
-                << '\n'
-                << "State: "
-                << process->getStateString()
-                << '\n'
-                << "Current instruction: "
-                << process->getInstructionPointer()
-                << '\n'
-                << "Total instructions: "
-                << process->getInstructionCount()
-                << '\n';
-
-            std::cout << "\nProcess output:\n";
-
-            for (const auto& log : process->getLogs()) {
-                std::cout << log << '\n';
-            }
-
-            if (process->getState() == ProcessState::Finished) {
-                std::cout << "Finished!\n";
-            }
-        }
-        else {
-            std::cout
-                << "Unknown process command.\n";
-        }
+    const auto snapshot = process->getSnapshot(true);
+    if (!newlyCreated && snapshot.state == ProcessState::Finished) {
+        std::cout << "Process " << processName << " not found.\n";
+        return;
     }
-
-    // Preserve process output when returning to the main menu.
-    std::cout
-        << "\nReturning to the main menu...\n\n";
+    clearConsole();
+    std::cout << "============================================\n"
+              << "Process Screen: " << processName << '\n'
+              << "Type process-smi for updated information.\n"
+              << "Type exit to return to the main menu.\n"
+              << "============================================\n";
+    printProcessInfo(snapshot);
+    while (true) {
+        const std::string line = readLine(processName + "> ");
+        if (!std::cin) { break; }
+        std::istringstream stream(line);
+        std::string command, extra;
+        if (!(stream >> command)) { continue; }
+        if (stream >> extra) {
+            std::cout << "Use process-smi or exit without extra arguments.\n";
+        }
+        else if (command == "exit") { break; }
+        else if (command == "process-smi") { printProcessInfo(process->getSnapshot(true)); }
+        else { std::cout << "Unknown process command.\n"; }
+    }
+    std::cout << "\nReturning to the main menu...\n\n";
 }

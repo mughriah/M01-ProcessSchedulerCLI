@@ -1,5 +1,4 @@
 #pragma once
-#pragma once
 
 #include <cstdint>
 #include <string>
@@ -10,7 +9,8 @@ enum class InstructionType {
     DECLARE,
     ADD,
     SUBTRACT,
-    SLEEP
+    SLEEP,
+    FOR
 };
 
 struct Instruction {
@@ -23,6 +23,8 @@ struct Instruction {
 
     uint16_t value = 0;
     uint8_t sleepTicks = 0;
+    std::vector<Instruction> body;
+    uint64_t repeats = 0;
 
     static Instruction makePrint(const std::string& message);
 
@@ -44,7 +46,12 @@ struct Instruction {
     );
 
     static Instruction makeSleep(uint8_t ticks);
+    static Instruction makeFor(std::vector<Instruction> body, uint64_t repeats);
 };
+
+// Loop headers do not consume CPU ticks; count the ordinary instructions they execute.
+// Also validates the three-level nesting limit and rejects count overflow.
+uint64_t countExecutableInstructions(const std::vector<Instruction>& program, unsigned depth = 0);
 
 std::vector<Instruction> generateInstructions(
     const std::string& processName,

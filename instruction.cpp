@@ -1,7 +1,10 @@
-#include "Instruction.h"
+#include "instruction.h"
 
 #include <algorithm>
 #include <random>
+#include <limits>
+#include <stdexcept>
+#include <utility>
 
 Instruction Instruction::makePrint(const std::string& msg) {
     Instruction instruction;
@@ -54,25 +57,68 @@ Instruction Instruction::makeSleep(uint8_t ticks) {
     return instruction;
 }
 
-std::vector<Instruction> generateInstructions(
+Instruction Instruction::makeFor(std::vector<Instruction> body, uint64_t repeats) {
+    Instruction instruction;
+    instruction.type = InstructionType::FOR;
+    instruction.body = std::move(body);
+    instruction.repeats = repeats;
+    return instruction;
+}
+
+uint64_t countExecutableInstructions(const std::vector<Instruction>& program, unsigned depth) {
+    uint64_t total = 0;
+    for (const auto& instruction : program) {
+        uint64_t count = 1;
+        if (instruction.type == InstructionType::FOR) {
+            if (depth >= 3) { throw std::invalid_argument("FOR loops may nest at most three levels."); }
+            const uint64_t bodyCount = countExecutableInstructions(instruction.body, depth + 1);
+            if (instruction.repeats && bodyCount > std::numeric_limits<uint64_t>::max() / instruction.repeats) {
+                throw std::overflow_error("FOR instruction count overflow.");
+            }
+            count = bodyCount * instruction.repeats;
+        }
+        if (count > std::numeric_limits<uint64_t>::max() - total) {
+            throw std::overflow_error("Program instruction count overflow.");
+        }
+        total += count;
+    }
+    return total;
+}
+
+namespace {
+std::vector<Instruction> generateBlock(
     const std::string& processName,
-    uint64_t count
+    uint64_t count,
+    unsigned depth
 ) {
     std::vector<Instruction> instructions;
-    instructions.reserve(static_cast<size_t>(count));
 
     static thread_local std::mt19937 rng(
         std::random_device{}()
     );
 
-    std::uniform_int_distribution<int> operation(0, 4);
+    std::uniform_int_distribution<int> operation(0, 5);
     std::uniform_int_distribution<int> number(0, 100);
     std::uniform_int_distribution<int> sleepLength(1, 5);
 
     const std::string variable = "var";
 
-    for (uint64_t i = 0; i < count; ++i) {
-        switch (operation(rng)) {
+    uint64_t remaining = count;
+    while (remaining > 0) {
+        int choice = operation(rng);
+        // A large workload stays compact instead of allocating billions of instructions.
+        if (remaining > 4096 && depth < 3) { choice = 5; }
+        if (choice == 5 && remaining >= 2 && depth < 3) {
+            const uint64_t bodyCount = std::uniform_int_distribution<uint64_t>(1, std::min<uint64_t>(8, remaining / 2))(rng);
+            const uint64_t repeats = remaining > 4096
+                ? remaining / bodyCount
+                : std::uniform_int_distribution<uint64_t>(2, std::min<uint64_t>(4, remaining / bodyCount))(rng);
+            instructions.push_back(Instruction::makeFor(generateBlock(processName, bodyCount, depth + 1), repeats));
+            remaining -= bodyCount * repeats;
+            continue;
+        }
+        if (choice == 5) { choice = 0; }
+        switch (choice) {
         case 0:
             instructions.push_back(
                 Instruction::makePrint(
@@ -118,7 +164,13 @@ std::vector<Instruction> generateInstructions(
             );
             break;
         }
+        --remaining;
     }
 
     return instructions;
+}
+}
+
+std::vector<Instruction> generateInstructions(const std::string& processName, uint64_t count) {
+    return generateBlock(processName, count, 0);
 }

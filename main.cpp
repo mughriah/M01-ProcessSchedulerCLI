@@ -1,5 +1,5 @@
 
-#include "Console.h"
+#include "console.h"
 
 #include <exception>
 #include <iostream>
@@ -16,7 +16,7 @@ int main() {
         << "    Diamante, Deo Zamir\n"
         << "    Guiller, Gerylyn\n"
         << "\n"
-        << "  Version Date: October 25, 2026\n"
+        << "  Version Date: November 5, 2026\n"
         << "============================================================\n\n";
 
     // Display available commands
@@ -30,9 +30,10 @@ int main() {
         << "  scheduler-start            Start automatic process generation\n"
         << "  scheduler-stop             Stop automatic process generation\n"
         << "  report-util                Generate the utilization report\n"
-        << "  process-smi                Display process and CPU information\n"
+        << "  help                       Display available commands\n"
         << "  exit                       Exit the program\n"
-        << "------------------------------------------------------------\n\n";
+        << "------------------------------------------------------------\n"
+        << "  Inside a process screen: process-smi shows that process.\n\n";
 
     try {
         Console console;

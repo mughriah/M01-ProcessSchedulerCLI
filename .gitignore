@@ -1,0 +1,12 @@
+/build/
+/x64/
+/Debug/
+/Release/
+/.vs/
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.tlog
+*.vcxproj.user
+/csopesy-log.txt

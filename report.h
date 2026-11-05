@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Scheduler.h"
+#include "scheduler.h"
 
 #include <string>
 
@@ -9,7 +9,7 @@ public:
     static std::string generate(Scheduler& scheduler);
 
     static bool save(
-        Scheduler& scheduler,
+        const std::string& report,
         const std::string& filename = "csopesy-log.txt"
     );
 };

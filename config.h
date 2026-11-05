@@ -12,5 +12,5 @@ struct Config {
     uint64_t maxInstructions = 15;
     uint64_t delaysPerExec = 0;
 
-    bool loadFromFile(const std::string& filename);
+    bool loadFromFile(const std::string& filename, std::string* error = nullptr);
 };

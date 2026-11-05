@@ -1,8 +1,8 @@
 
 #pragma once
 
-#include "Config.h"
-#include "Process.h"
+#include "config.h"
+#include "process.h"
 
 #include <atomic>
 #include <cstdint>
@@ -14,8 +14,17 @@
 #include <unordered_map>
 #include <vector>
 
+struct SchedulerSnapshot {
+    uint64_t tick = 0;
+    uint64_t busyCoreTicks = 0;
+    int cpuCount = 0;
+    int usedCores = 0;
+    std::vector<ProcessSnapshot> processes;
+};
+
 class Scheduler {
 private:
+    friend struct SchedulerTestAccess;
     struct CPUCore {
         std::shared_ptr<Process> process;
         uint64_t quantumUsed = 0;
@@ -41,14 +50,11 @@ private:
     uint64_t currentTick = 0;
     uint64_t busyCoreTicks = 0;
     uint64_t nextProcessNumber = 1;
+    uint64_t nextBatchTick = 0;
 
     void run();
     void tick();
     void generateBatchProcess();
-
-    void enqueueIfNeeded(
-        const std::shared_ptr<Process>& process
-    );
 
 public:
     Scheduler();
@@ -80,4 +86,5 @@ public:
     int getAvailableCores() const;
 
     Config getConfig() const;
+    SchedulerSnapshot getSnapshot() const;
 };

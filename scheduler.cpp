@@ -1,5 +1,5 @@
 
-#include "Scheduler.h"
+#include "scheduler.h"
 
 #include <algorithm>
 #include <chrono>
@@ -34,6 +34,7 @@ bool Scheduler::initialize(const Config& loadedConfig) {
     currentTick = 0;
     busyCoreTicks = 0;
     nextProcessNumber = 1;
+    nextBatchTick = 0;
 
     processes.clear();
     readyQueue.clear();
@@ -63,34 +64,15 @@ void Scheduler::stop() {
 }
 
 void Scheduler::startBatchGeneration() {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (batchGenerationEnabled) { return; }
+    nextBatchTick = currentTick + config.batchProcessFreq;
     batchGenerationEnabled = true;
 }
 
 void Scheduler::stopBatchGeneration() {
+    std::lock_guard<std::mutex> lock(mutex);
     batchGenerationEnabled = false;
-}
-
-void Scheduler::enqueueIfNeeded(
-    const std::shared_ptr<Process>& process
-) {
-    if (!process ||
-        process->getState() != ProcessState::Ready) {
-        return;
-    }
-
-    for (const auto& queued : readyQueue) {
-        if (queued == process) {
-            return;
-        }
-    }
-
-    for (const auto& core : cores) {
-        if (core.process == process) {
-            return;
-        }
-    }
-
-    readyQueue.push_back(process);
 }
 
 std::shared_ptr<Process> Scheduler::createProcess(
@@ -203,6 +185,26 @@ Config Scheduler::getConfig() const {
     return config;
 }
 
+SchedulerSnapshot Scheduler::getSnapshot() const {
+    // Keep the scheduler locked while copying every process, so one report
+    // cannot show the same process in both the active and finished sections.
+    std::lock_guard<std::mutex> lock(mutex);
+    SchedulerSnapshot snapshot;
+    snapshot.tick = currentTick;
+    snapshot.busyCoreTicks = busyCoreTicks;
+    snapshot.cpuCount = config.numCPU;
+    for (const auto& core : cores) {
+        if (core.process) { ++snapshot.usedCores; }
+    }
+    for (const auto& entry : processes) {
+        snapshot.processes.push_back(entry.second->getSnapshot());
+    }
+    std::sort(snapshot.processes.begin(), snapshot.processes.end(), [](const auto& a, const auto& b) {
+        return a.id < b.id;
+    });
+    return snapshot;
+}
+
 void Scheduler::generateBatchProcess() {
     std::ostringstream name;
 
@@ -252,19 +254,32 @@ void Scheduler::tick() {
 
     ++currentTick;
 
+    // An expired quantum yields before the next tick's instruction. Keeping
+    // the core assigned until then also makes screen -ls show current usage.
+    for (auto& core : cores) {
+        if (core.process && config.scheduler == "rr" && core.quantumUsed >= config.quantumCycles) {
+            core.process->setReady();
+            readyQueue.push_back(core.process);
+            core.process.reset();
+            core.quantumUsed = 0;
+        }
+    }
+
     // Advance sleeping processes and requeue those that wake.
     for (auto& entry : processes) {
         auto& process = entry.second;
 
         if (process->getState() == ProcessState::Sleeping) {
-            process->advanceSleep();
+            process->advanceSleep(currentTick);
+            if (process->getState() == ProcessState::Ready) {
+                readyQueue.push_back(process);
+            }
         }
-
-        enqueueIfNeeded(process);
     }
 
     // Assign ready processes to idle CPU cores.
-    for (auto& core : cores) {
+    for (size_t coreIndex = 0; coreIndex < cores.size(); ++coreIndex) {
+        auto& core = cores[coreIndex];
         if (core.process) {
             continue;
         }
@@ -280,7 +295,7 @@ void Scheduler::tick() {
             core.process = process;
             core.quantumUsed = 0;
 
-            process->setRunning(currentTick);
+            process->setRunning(currentTick, static_cast<int>(coreIndex));
             break;
         }
     }
@@ -308,22 +323,14 @@ void Scheduler::tick() {
             continue;
         }
 
-        if (config.scheduler == "rr" &&
-            core.quantumUsed >= config.quantumCycles) {
-            process->setReady();
-
-            core.process.reset();
-            core.quantumUsed = 0;
-
-            readyQueue.push_back(process);
-        }
     }
 
     // Generate a process at the configured CPU-tick frequency.
     if (batchGenerationEnabled &&
         config.batchProcessFreq > 0 &&
-        currentTick % config.batchProcessFreq == 0) {
+        currentTick >= nextBatchTick) {
         generateBatchProcess();
+        nextBatchTick = currentTick + config.batchProcessFreq;
     }
 }
 

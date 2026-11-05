@@ -100,5 +100,3 @@ Build and check the program before the quiz. During the assessment, follow the r
 ```powershell
 .\build\ProcessScheduler.exe
 ```
-
-Do not use `run.ps1` during the quiz because it recompiles. Prepare the required video evidence and technical presentation covering command recognition, console UI, command interpretation, process representation, and scheduling.
